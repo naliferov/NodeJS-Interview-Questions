@@ -13,12 +13,12 @@
 
 1. Что можно сделать с помощью `for await` с объектом `request: IncomingMessage`?
 
-Читаем стрим:
+Прочитать стрим:
 
-```
-let body = '';
+```js
+let body = [];
 for await (const chunk of request) {
-  body += chunk;
+  body.push(chunk);
 }
 ```
 
@@ -29,20 +29,125 @@ Bcrypt за свою историю был и в базах уязвимосте
 (Взято из чата https://t.me/nodeua/103239)
 
 3. Какое API реализует `nodejs/undici`?
-   HTTP клиент для node.js
+   Fetch API
 
 4. Чем современным заменить node:domain API?
 
 Похоже, что это AsyncLocalStorage.
 
 5. Когда мы можем использовать синхронные версии операций с файлами из `node:fs` вместо асинхронных и на что обращать внимание, принимая такое решение?
+
+Если от чтения какого-то файла зависит запуск приложения.
+Когда у нас небольшой скрипт и не критично, что поток заблокируется при чтении файла.
+Или есть какой-то воркер тред, который служит для последовательного чтения файлов
+
 6. Приведите лучшие практики для обработки ошибок в асинхронном коде.
+
+Централизованная обработка исключение и ошибок.
+
 7. Как в проектах на ноде могут появиться уязвимости? Объясните на выбор XSS, Path traversal, SQL injection, CSRF? Как от них защищаться?
+
+Если сайт позволяет выводить пользовательский код как html, то возможен XSS. Чтобы защититься можно выводить код от пользователя как текст, а не html или использовать библиотеки для очистки и html-экранирования. Также как предосторожность можно для акторизационныых кукис добавить HttpOnly и Secure атрибуты.
+
 8. Как возможно состояние гонки (race condition) в асинхронном программировании? И как от этого защищаться?
+   Например мы одновременно без await запускаем 2 http-запроса и результат записываем в какое-то свойство объекта. В данном случае мы не знаем какой запрос будет выполнен раньше.
+
+   Чтобы это решить мы можем последовательно выполнять запросы и использоватеть отдельные контексты для записи результатов.
+
 9. В чем плюсы и минусы разделения кода на .js и отдельно тайпинги .d.ts?
+
+Плюсы.
+Позволяет указать типизацию, контракты для js файлов.
+Не нужно затягивать typescript и при этом добавить контракт и типы.
+Если нужно внедрить js-библиотеку в какой-то typescript проект, можно не переписывать на typescript, а добавить типы через .d.ts.
+
+Минусы
+Нужно менять и .js файлы и .d.ts файлы, когда интерфейс меняется.
+
 10. Приведите несколько типичных для Node.js паттернов проектирования (по GoF и не только) с примерами.
+
+Factory
+
+```js
+class AnimalFactory {
+  createAnimal(type) {
+    if (type === "dog") {
+      return new Dog();
+    } else if (type === "cat") {
+      return new Cat();
+    } else {
+      throw new Error("Unknown animal type");
+    }
+  }
+}
+```
+
+Strategy
+
+```js
+class Logger {
+  constructor(strategy) {
+    this.strategy = strategy;
+  }
+
+  log(message) {
+    this.strategy.log(message);
+  }
+}
+```
+
+Observer
+
+```js
+class EventEmitter {
+  constructor() {
+    this.events = {};
+  }
+
+  on(event, listener) {
+    if (!this.events[event]) {
+      this.events[event] = [];
+    }
+    this.events[event].push(listener);
+  }
+
+  emit(event, ...args) {
+    if (this.events[event]) {
+      this.events[event].forEach((listener) => listener(...args));
+    }
+  }
+}
+```
+
 11. В чем заключается проблема толстых контролеров? (с примерами на ноде)
+
+Происходит например когда в контроллерах начинают писать много логики и не выносят в сервисы.
+
+```js
+router.post("/register", async (req, res) => {
+  const { username, password } = req.body;
+
+  // Проверка наличия пользователя
+  const existingUser = await User.findOne({ username });
+  if (existingUser) {
+    return res.status(400).json({ message: "User already exists" });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = new User({
+    username,
+    password: hashedPassword,
+  });
+
+  await user.save();
+
+  res.status(201).json({ message: "User registered successfully" });
+});
+```
+
 12. Приведите примеры протекания абстракций (типичных для ноды).
+
 13. Как можно создать `Singleton` с помощью системы модульности в ноде?
 14. Как проще всего реализовать паттерн Strategy на JavaScript (и где его использовать в ноде)?
 15. Приведите пример паттерна `Adapter` из встроенных библиотек ноды (есть несколько).
